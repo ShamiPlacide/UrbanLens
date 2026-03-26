@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UrbanLens — Kigali Settlements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<style>
+  :root {
+    --bg:       #080b10;
+    --surface:  #0e1420;
+    --panel:    #131928;
+    --border:   #1e2d42;
+    --amber:    #f59e0b;
+    --amber-dim:#b5740a;
+    --teal:     #14b8a6;
+    --red:      #ef4444;
+    --yellow:   #eab308;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --low:      #22c55e;
+    --medium:   #eab308;
+    --high:     #ef4444;
+    --pending:  #94a3b8;
+    --approved: #22c55e;
+    --rejected: #ef4444;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── LOGIN ── */
+  #login-page {
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; background: var(--bg);
+    position: relative; overflow: hidden;
+  }
+  #login-page::before {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 59px,var(--border) 60px),
+                repeating-linear-gradient(90deg,transparent,transparent 59px,var(--border) 60px);
+    opacity: 0.4; pointer-events: none;
+  }
+  #login-page::after {
+    content: ''; position: absolute; width: 600px; height: 600px;
+    background: radial-gradient(circle,rgba(245,158,11,0.12) 0%,transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none;
+  }
+  .login-card {
+    position: relative; z-index: 10; width: 420px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: 2px solid var(--amber); padding: 48px 40px 40px;
+    animation: slideUp 0.6s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+  .login-logo { display:flex; align-items:center; gap:12px; margin-bottom:32px; }
+  .login-logo .icon { width:44px;height:44px;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .login-logo h1 { font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.5px;color:var(--text); }
+  .login-logo p { font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px; }
+  .login-card h2 { font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px; }
+  .login-card .subtitle { font-size:13px;color:var(--muted);margin-bottom:28px; }
+  .field { margin-bottom:18px; }
+  .field label { display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px; }
+  .field input,.field select,.field textarea {
+    width:100%;background:var(--panel);border:1px solid var(--border);
+    color:var(--text);padding:12px 14px;font-family:'DM Sans',sans-serif;
+    font-size:14px;outline:none;transition:border-color 0.2s;appearance:none;resize:vertical;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus { border-color:var(--amber); }
+  .field select {
+    cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display:inline-flex;align-items:center;gap:8px;padding:12px 20px;
+    font-family:'Space Mono',monospace;font-size:12px;font-weight:700;
+    letter-spacing:0.5px;cursor:pointer;border:none;transition:all 0.15s;
+    text-transform:uppercase;white-space:nowrap;
+  }
+  .btn-primary { background:var(--amber);color:#000;width:100%;justify-content:center; }
+  .btn-primary:hover { background:#fbbf24; }
+  .btn-outline { background:transparent;border:1px solid var(--border);color:var(--text); }
+  .btn-outline:hover { border-color:var(--amber);color:var(--amber); }
+  .btn-danger { background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:8px 14px; }
+  .btn-danger:hover { border-color:var(--red);color:var(--red); }
+  .btn-sm { padding:7px 14px;font-size:10px; }
+  .btn-approve { background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:var(--approved); }
+  .btn-approve:hover { background:rgba(34,197,94,0.25); }
+  .btn-reject { background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--rejected); }
+  .btn-reject:hover { background:rgba(239,68,68,0.2); }
+
+  .error-msg { color:var(--red);font-family:'Space Mono',monospace;font-size:11px;margin-top:12px;display:none; }
+  .hint-box { margin-top:24px;padding:12px;border:1px dashed var(--border);font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);line-height:1.8; }
+
+  /* ── DASHBOARD ── */
+  #dashboard { display:none;height:100vh;flex-direction:column; }
+
+  .topbar {
+    height:56px;background:var(--surface);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;padding:0 20px;gap:0;flex-shrink:0;
+    position:relative;z-index:1000;
+  }
+  .topbar-brand { display:flex;align-items:center;gap:10px;padding-right:24px;border-right:1px solid var(--border);margin-right:20px; }
+  .brand-icon { width:30px;height:30px;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0; }
+  .topbar-brand h1 { font-family:'Syne',sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.5px; }
+  .topbar-meta { font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px; }
+  .topbar-meta span { color:var(--amber); }
+  .topbar-actions { margin-left:auto;display:flex;align-items:center;gap:12px; }
+  .status-dot { width:7px;height:7px;background:var(--teal);border-radius:50%;animation:pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-label { font-family:'Space Mono',monospace;font-size:10px;color:var(--muted); }
+
+  /* User info chip in topbar */
+  .user-chip {
+    display:flex;align-items:center;gap:8px;padding:6px 12px;
+    background:var(--panel);border:1px solid var(--border);
+    font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);
+  }
+  .user-chip .role-tag {
+    font-size:9px;padding:2px 6px;letter-spacing:1px;text-transform:uppercase;font-weight:700;
+  }
+  .role-Planner    { background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.3); }
+  .role-Authority  { background:rgba(20,184,166,0.15);color:var(--teal);border:1px solid rgba(20,184,166,0.3); }
+  .role-Researcher { background:rgba(100,116,139,0.2);color:var(--muted);border:1px solid rgba(100,116,139,0.3); }
+
+  /* Nav tabs */
+  .nav-tabs { display:flex;gap:0;border-right:1px solid var(--border); }
+  .nav-tab {
+    padding:0 20px;height:56px;display:flex;align-items:center;
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;
+    border-right:1px solid var(--border);border-bottom:2px solid transparent;
+    transition:all 0.15s;white-space:nowrap;
+  }
+  .nav-tab:hover { color:var(--text); }
+  .nav-tab.active { color:var(--amber);border-bottom-color:var(--amber); }
+
+  /* Panels */
+  .panel-view { display:none;flex:1;overflow:hidden; }
+  .panel-view.active { display:flex; }
+
+  /* ── MAP PANEL ── */
+  .main-layout { display:flex;flex:1;overflow:hidden; }
+  .sidebar {
+    width:300px;background:var(--surface);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+  }
+  .sidebar-header { padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+  .sidebar-header h3 { font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted); }
+  .count-badge { background:var(--panel);border:1px solid var(--border);font-family:'Space Mono',monospace;font-size:10px;color:var(--amber);padding:2px 8px; }
+  .sidebar-list { flex:1;overflow-y:auto;padding:8px; }
+  .sidebar-list::-webkit-scrollbar { width:4px; }
+  .sidebar-list::-webkit-scrollbar-thumb { background:var(--border); }
+
+  .settlement-card {
+    padding:14px;border:1px solid var(--border);margin-bottom:6px;
+    cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;background:var(--panel);
+  }
+  .settlement-card::before {
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--amber);opacity:0;transition:opacity 0.15s;
+  }
+  .settlement-card:hover { border-color:var(--amber); }
+  .settlement-card:hover::before { opacity:1; }
+  .card-name { font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .card-meta { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+  .risk-badge { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;font-weight:700; }
+  .risk-Low    { background:rgba(34,197,94,0.15);color:var(--low);border:1px solid rgba(34,197,94,0.3); }
+  .risk-Medium { background:rgba(234,179,8,0.15);color:var(--medium);border:1px solid rgba(234,179,8,0.3); }
+  .risk-High   { background:rgba(239,68,68,0.15);color:var(--high);border:1px solid rgba(239,68,68,0.3); }
+  .status-badge { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;font-weight:700; }
+  .status-Pending  { background:rgba(148,163,184,0.1);color:var(--pending);border:1px solid rgba(148,163,184,0.3); }
+  .status-Approved { background:rgba(34,197,94,0.1);color:var(--approved);border:1px solid rgba(34,197,94,0.3); }
+  .status-Rejected { background:rgba(239,68,68,0.1);color:var(--rejected);border:1px solid rgba(239,68,68,0.3); }
+  .pop-tag { font-family:'Space Mono',monospace;font-size:9px;color:var(--muted); }
+  .card-date { font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:6px; }
+  .card-actions { display:flex;gap:6px;margin-top:8px; }
+  .card-delete {
+    position:absolute;top:8px;right:8px;background:none;border:none;
+    color:var(--muted);cursor:pointer;font-size:14px;padding:4px;
+    opacity:0;transition:opacity 0.15s,color 0.15s;
+  }
+  .settlement-card:hover .card-delete { opacity:1; }
+  .card-delete:hover { color:var(--red)!important; }
+
+  .empty-state { padding:40px 20px;text-align:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8; }
+
+  #map { flex:1;z-index:1; }
+
+  /* ── USERS PANEL ── */
+  .admin-panel { flex:1;overflow:hidden;display:flex;flex-direction:column; }
+  .admin-header {
+    padding:20px 28px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  }
+  .admin-header h2 { font-family:'Syne',sans-serif;font-size:20px;font-weight:800; }
+  .admin-header p { font-size:13px;color:var(--muted);margin-top:2px; }
+  .admin-body { flex:1;overflow-y:auto;padding:24px 28px; }
+
+  .users-table { width:100%;border-collapse:collapse; }
+  .users-table th {
+    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--muted);text-align:left;
+    padding:8px 12px;border-bottom:1px solid var(--border);
+  }
+  .users-table td { padding:12px 12px;border-bottom:1px solid rgba(30,45,66,0.6);font-size:13px; }
+  .users-table tr:hover td { background:var(--panel); }
+  .users-table .u-name { font-weight:500; }
+  .users-table .u-email { color:var(--muted);font-size:12px; }
+  .users-table .u-date { font-family:'Space Mono',monospace;font-size:10px;color:var(--muted); }
+
+  /* ── AUDIT LOG PANEL ── */
+  .audit-table { width:100%;border-collapse:collapse;font-size:12px; }
+  .audit-table th { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);text-align:left; }
+  .audit-table td { padding:10px 12px;border-bottom:1px solid rgba(30,45,66,0.4); }
+  .audit-table tr:hover td { background:var(--panel); }
+  .audit-action { font-family:'Space Mono',monospace;font-size:10px;color:var(--teal); }
+  .audit-user { font-size:11px;color:var(--muted); }
+  .audit-detail { font-size:11px;color:var(--text); }
+  .audit-time { font-family:'Space Mono',monospace;font-size:9px;color:var(--muted); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity 0.2s;
+  }
+  .modal-overlay.open { opacity:1;pointer-events:all; }
+  .modal {
+    background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--amber);
+    width:460px;padding:32px;transform:translateY(16px);
+    transition:transform 0.25s cubic-bezier(.22,1,.36,1);position:relative;
+  }
+  .modal-overlay.open .modal { transform:translateY(0); }
+  .modal-header { display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px; }
+  .modal-header h2 { font-family:'Syne',sans-serif;font-size:20px;font-weight:800; }
+  .modal-header p { font-size:12px;color:var(--muted);margin-top:2px; }
+  .modal-close { background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:0;line-height:1;transition:color 0.15s; }
+  .modal-close:hover { color:var(--text); }
+  .form-row { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+  .modal-actions { display:flex;gap:10px;margin-top:24px; }
+  .modal-actions .btn-primary { flex:1; }
+
+  /* Draw banner */
+  .draw-banner {
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+    background:var(--amber);color:#000;font-family:'Space Mono',monospace;
+    font-size:11px;font-weight:700;letter-spacing:0.5px;padding:12px 24px;
+    z-index:5000;display:none;align-items:center;gap:10px;
+    animation:bounce-in 0.3s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes bounce-in { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  .draw-banner.show { display:flex; }
+
+  /* Toast — must be above modal overlay (9999) AND its backdrop-filter stacking context */
+  .toast {
+    position:fixed;top:72px;right:20px;background:var(--surface);
+    border:1px solid var(--border);border-left:3px solid var(--teal);
+    padding:14px 18px;font-family:'Space Mono',monospace;font-size:11px;
+    color:var(--teal);z-index:10001;opacity:0;transform:translateX(20px);
+    transition:opacity 0.3s,transform 0.3s;pointer-events:none;max-width:260px;
+    /* isolation:isolate ensures it is never clipped by a parent stacking context */
+    isolation:isolate;
+  }
+  .toast.show { opacity:1;transform:translateX(0); }
+  .toast.error { border-left-color:var(--red);color:var(--red); }
+
+  /* Leaflet popup */
+  .leaflet-popup-content-wrapper { background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:0!important;box-shadow:0 8px 32px rgba(0,0,0,0.5)!important;color:var(--text)!important; }
+  .leaflet-popup-tip { background:var(--border)!important; }
+  .popup-name { font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:8px;color:var(--text); }
+  .popup-row { display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px; }
+  .popup-row:last-child { border-bottom:none; }
+  .popup-label { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted); }
+  .popup-value { font-weight:500;color:var(--text); }
+  .popup-actions { display:flex;gap:8px;margin-top:10px; }
+
+  .leaflet-draw-toolbar a { background-color:var(--surface)!important;border-color:var(--border)!important;color:var(--text)!important; }
+  .leaflet-draw-toolbar a:hover { background-color:var(--panel)!important; }
+  .leaflet-control-zoom a { background:var(--surface)!important;border-color:var(--border)!important;color:var(--text)!important; }
+  .leaflet-control-zoom a:hover { background:var(--panel)!important;color:var(--amber)!important; }
+  .leaflet-control-attribution { background:rgba(14,20,32,0.85)!important;color:var(--muted)!important;font-size:9px!important; }
+  .leaflet-control-attribution a { color:var(--amber)!important; }
+
+  /* Readonly notice banner for researchers */
+  .readonly-banner {
+    display:none;background:rgba(20,184,166,0.08);border-bottom:1px solid rgba(20,184,166,0.25);
+    padding:8px 20px;font-family:'Space Mono',monospace;font-size:10px;
+    color:var(--teal);letter-spacing:0.5px;flex-shrink:0;
+  }
+  .readonly-banner.show { display:block; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ LOGIN ════════════════ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">🗺</div>
+      <div>
+        <h1>UrbanLens</h1>
+        <p>Settlement Mapping Platform</p>
+      </div>
+    </div>
+    <h2>Sign In</h2>
+    <p class="subtitle">Access the Kigali settlement dashboard.</p>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="login-email" placeholder="you@urbanlens.com">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">
+      <span>🔐</span> Sign In to Dashboard
+    </button>
+    <div class="error-msg" id="login-error">⚠ Invalid credentials. Please try again.</div>
+    <div class="hint-box">
+      DEMO ACCOUNTS<br>
+      Planner:    <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="244540494d4a64515646454a48414a570a474b49">[email&#160;protected]</a> / admin123<br>
+      Authority:  <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="87e6f2f3efe8f5eef3fec7f2f5e5e6e9ebe2e9f4a9e4e8ea">[email&#160;protected]</a> / auth123<br>
+      Researcher: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="33415640565241505b564173464151525d5f565d401d505c5e">[email&#160;protected]</a> / research123
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ DASHBOARD ════════════════ -->
+<div id="dashboard">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">🗺</div>
+      <h1>UrbanLens</h1>
+    </div>
+
+    <!-- Nav tabs — shown per role -->
+    <div class="nav-tabs">
+      <div class="nav-tab active" id="tab-map" onclick="switchTab('map')">Map</div>
+      <div class="nav-tab" id="tab-users" onclick="switchTab('users')" style="display:none">Users</div>
+      <div class="nav-tab" id="tab-audit" onclick="switchTab('audit')" style="display:none">Audit Log</div>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="status-dot"></div>
+      <span class="status-label">LIVE</span>
+      <div class="user-chip" id="user-chip">
+        <span id="chip-name">—</span>
+        <span class="role-tag" id="chip-role">—</span>
+      </div>
+      <button class="btn btn-outline" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Readonly banner for researchers -->
+  <div class="readonly-banner" id="readonly-banner">
+    👁 Read-only mode — you can view approved settlements but cannot add or edit data.
+  </div>
+
+  <!-- MAP PANEL -->
+  <div class="panel-view active" id="panel-map">
+    <div class="main-layout">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h3>Settlements</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="count-badge" id="count-badge">0</div>
+            <button class="btn btn-primary btn-sm" onclick="startDraw()" id="add-btn" style="display:none">＋ Add</button>
+          </div>
+        </div>
+        <div class="sidebar-list" id="sidebar-list">
+          <div class="empty-state">No settlements mapped yet.</div>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- USERS PANEL (Authority only) -->
+  <div class="panel-view" id="panel-users">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div>
+          <h2>User Management</h2>
+          <p>Create and manage system users and their roles.</p>
+        </div>
+        <button class="btn btn-primary" style="width:auto" onclick="openUserModal()">＋ New User</button>
+      </div>
+      <div class="admin-body">
+        <table class="users-table" id="users-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIT LOG PANEL (Authority only) -->
+  <div class="panel-view" id="panel-audit">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div>
+          <h2>Audit Log</h2>
+          <p>All user actions are recorded here for accountability.</p>
+        </div>
+        <button class="btn btn-outline" style="width:auto" onclick="loadAuditLog()">↺ Refresh</button>
+      </div>
+      <div class="admin-body">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>User</th>
+              <th>Target</th>
+              <th>Detail</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ ADD SETTLEMENT MODAL ════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>New Settlement</h2>
+        <p>Polygon captured — enter settlement details below.</p>
+      </div>
+      <button class="modal-close" onclick="cancelDraw()">✕</button>
+    </div>
+    <div class="field">
+      <label>Settlement Name</label>
+      <input type="text" id="s-name" placeholder="e.g. Nyamirambo North">
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Population Estimate</label>
+        <input type="number" id="s-pop" placeholder="e.g. 4500" min="0">
+      </div>
+      <div class="field">
+        <label>Risk Level</label>
+        <select id="s-risk">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Housing Type</label>
+        <select id="s-housing">
+          <option value="">— Select —</option>
+          <option>Informal/Makeshift</option>
+          <option>Semi-Permanent</option>
+          <option>Permanent</option>
+          <option>Mixed</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="s-notes" rows="2" placeholder="Any additional notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveSettlement()"><span>💾</span> Save Settlement</button>
+      <button class="btn btn-outline" onclick="cancelDraw()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ ADD USER MODAL ════════ -->
+<div class="modal-overlay" id="user-modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>New User</h2>
+        <p>Add a new user to the system.</p>
+      </div>
+      <button class="modal-close" onclick="closeUserModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="u-name" placeholder="e.g. Alice Uwase">
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="u-email" placeholder="alice@urbanlens.com">
+      </div>
+      <div class="field">
+        <label>Role</label>
+        <select id="u-role">
+          <option value="Planner">Planner</option>
+          <option value="Authority">Authority</option>
+          <option value="Researcher">Researcher</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="u-password" placeholder="Min 6 characters">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveUser()"><span>💾</span> Create User</button>
+      <button class="btn btn-outline" onclick="closeUserModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Draw instruction banner -->
+<div class="draw-banner" id="draw-banner">
+  <span>✏</span> DRAWING MODE — Click to place points. Double-click to finish.
+  <button onclick="cancelDraw()" style="background:rgba(0,0,0,0.2);border:none;color:#000;cursor:pointer;padding:4px 10px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;margin-left:8px;">CANCEL</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+<script>
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+let map, drawnItems, drawControl, currentPolygon = null;
+let settlements = [];
+let currentUser = null;
+
+const RISK_COLORS = { Low: '#22c55e', Medium: '#eab308', High: '#ef4444' };
+const STATUS_OPACITY = { Pending: 0.14, Approved: 0.22, Rejected: 0.08 };
+
+// ════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  try {
+    const res  = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentUser = data.user;
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'flex';
+      setupRoleUI();
+      initMap();
+      loadSettlements();
+    } else {
+      showLoginError();
+    }
+  } catch(e) { showToast('Connection error', true); }
+}
+
+function showLoginError() {
+  const err = document.getElementById('login-error');
+  err.style.display = 'block';
+  setTimeout(() => err.style.display = 'none', 3000);
+}
+
+async function doLogout() {
+  await fetch('/logout', { method: 'POST' });
+  location.reload();
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ════════════════════════════════════════
+// ROLE-BASED UI SETUP
+// ════════════════════════════════════════
+function setupRoleUI() {
+  var role = currentUser.role;
+
+  document.getElementById('chip-name').textContent = currentUser.name;
+  var roleTag = document.getElementById('chip-role');
+  roleTag.textContent = role;
+  roleTag.className = 'role-tag role-' + role;
+
+  // Planner (admin) gets Users + Audit Log tabs
+  if (role === 'Planner') {
+    document.getElementById('tab-users').style.display = 'flex';
+    document.getElementById('tab-audit').style.display = 'flex';
+  }
+
+  // Researcher gets read-only banner and no Add button
+  if (role === 'Researcher') {
+    document.getElementById('readonly-banner').classList.add('show');
+  } else {
+    // Planner and Authority can both add settlements
+    document.getElementById('add-btn').style.display = 'inline-flex';
+  }
+}
+
+// ════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+
+  if (name === 'users')  loadUsers();
+  if (name === 'audit')  loadAuditLog();
+  if (name === 'map' && map) setTimeout(() => map.invalidateSize(), 50);
+}
+
+// ════════════════════════════════════════
+// MAP
+// ════════════════════════════════════════
+function initMap() {
+  map = L.map('map', { center: [-1.9441, 30.0619], zoom: 13 });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> &copy; <a href="https://carto.com">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 20
+  }).addTo(map);
+
+  drawnItems = new L.FeatureGroup().addTo(map);
+  drawControl = new L.Control.Draw({
+    draw: {
+      polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.18, weight: 2 } },
+      polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+    },
+    edit: { featureGroup: drawnItems, remove: false }
+  });
+
+  map.on(L.Draw.Event.CREATED, function(e) {
+    currentPolygon = e.layer;
+    drawnItems.addLayer(currentPolygon);
+    document.getElementById('draw-banner').classList.remove('show');
+    openModal();
+  });
+  map.on(L.Draw.Event.DRAWSTART, function() {
+    document.getElementById('draw-banner').classList.add('show');
+    document.getElementById('add-btn').style.opacity = '0.5';
+    document.getElementById('add-btn').style.pointerEvents = 'none';
+  });
+  map.on(L.Draw.Event.DRAWSTOP, function() {
+    document.getElementById('draw-banner').classList.remove('show');
+    document.getElementById('add-btn').style.opacity = '';
+    document.getElementById('add-btn').style.pointerEvents = '';
+  });
+}
+
+function startDraw() {
+  if (currentUser.role === 'Researcher') return;
+  map.addControl(drawControl);
+  new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+}
+
+function cancelDraw() {
+  if (currentPolygon) { drawnItems.removeLayer(currentPolygon); currentPolygon = null; }
+  closeModal();
+  document.getElementById('draw-banner').classList.remove('show');
+  document.getElementById('add-btn').style.opacity = '';
+  document.getElementById('add-btn').style.pointerEvents = '';
+}
+
+// ════════════════════════════════════════
+// SETTLEMENT MODAL
+// ════════════════════════════════════════
+function openModal() {
+  ['s-name','s-pop','s-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('s-risk').value = 'Medium';
+  document.getElementById('s-housing').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('s-name').focus(), 200);
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === document.getElementById('modal-overlay')) cancelDraw(); });
+
+// ════════════════════════════════════════
+// SAVE SETTLEMENT
+// ════════════════════════════════════════
+async function saveSettlement() {
+  const name = document.getElementById('s-name').value.trim();
+  if (!name) { highlightError('s-name'); return; }
+  if (!currentPolygon) { showToast('No polygon drawn', true); return; }
+
+  const coords = currentPolygon.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+  try {
+    const res = await fetch('/settlements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        polygon_coordinates: coords,
+        population_estimate: document.getElementById('s-pop').value ? parseInt(document.getElementById('s-pop').value) : null,
+        risk_level:  document.getElementById('s-risk').value,
+        housing_type: document.getElementById('s-housing').value,
+        notes: document.getElementById('s-notes').value.trim()
+      })
+    });
+    if (res.ok) {
+      closeModal(); currentPolygon = null;
+      showToast('✓ Settlement saved (Pending approval)');
+      await loadSettlements();
+    } else {
+      const d = await res.json();
+      showToast(d.error || 'Failed to save', true);
+    }
+  } catch(e) { console.error('saveSettlement error:', e); showToast('Network error: ' + e.message, true); }
+}
+
+function highlightError(id) {
+  const el = document.getElementById(id);
+  el.focus(); el.style.borderColor = '#ef4444';
+  setTimeout(() => el.style.borderColor = '', 1500);
+}
+
+// ════════════════════════════════════════
+// LOAD & RENDER SETTLEMENTS
+// ════════════════════════════════════════
+async function loadSettlements() {
+  try {
+    const res = await fetch('/settlements');
+    if (!res.ok) return;
+    settlements = await res.json();
+    renderSidebar();
+    renderMapPolygons();
+  } catch(e) { console.error(e); }
+}
+
+function renderMapPolygons() {
+  drawnItems.clearLayers();
+  settlements.forEach(s => addPolygonToMap(s));
+}
+
+function addPolygonToMap(s) {
+  const color   = RISK_COLORS[s.risk_level] || '#f59e0b';
+  const opacity = STATUS_OPACITY[s.status]  || 0.15;
+  const latLngs = s.polygon_coordinates.map(c => L.latLng(c[0], c[1]));
+  const poly = L.polygon(latLngs, {
+    color, fillColor: color, fillOpacity: opacity,
+    weight: s.status === 'Rejected' ? 1 : 2,
+    dashArray: s.status === 'Pending' ? '6 4' : null
+  });
+
+  const isAuthority = currentUser.role === 'Authority';
+  const approveBtn = isAuthority && s.status !== 'Approved'
+    ? `<button class="btn btn-approve btn-sm" onclick="updateStatus(${s.id},'Approved')">✓ Approve</button>` : '';
+  const rejectBtn  = isAuthority && s.status !== 'Rejected'
+    ? `<button class="btn btn-reject btn-sm" onclick="updateStatus(${s.id},'Rejected')">✕ Reject</button>`  : '';
+
+  poly.bindPopup(`
+    <div style="min-width:210px;padding:4px">
+      <div class="popup-name">${escHtml(s.name)}</div>
+      <div class="popup-row"><span class="popup-label">Status</span><span class="status-badge status-${s.status}">${s.status}</span></div>
+      <div class="popup-row"><span class="popup-label">Risk</span><span class="risk-badge risk-${s.risk_level}">${s.risk_level}</span></div>
+      <div class="popup-row"><span class="popup-label">Population</span><span class="popup-value">${s.population_estimate ? s.population_estimate.toLocaleString() : '—'}</span></div>
+      ${s.housing_type ? `<div class="popup-row"><span class="popup-label">Housing</span><span class="popup-value">${escHtml(s.housing_type)}</span></div>` : ''}
+      <div class="popup-row"><span class="popup-label">Mapped</span><span class="popup-value" style="font-size:11px">${formatDate(s.created_at)}</span></div>
+      ${(approveBtn || rejectBtn) ? `<div class="popup-actions">${approveBtn}${rejectBtn}</div>` : ''}
+    </div>`, { maxWidth: 280 });
+
+  poly.on('mouseover', function() { this.setStyle({ fillOpacity: Math.min(opacity + 0.2, 0.5), weight: 3 }); });
+  poly.on('mouseout',  function() { this.setStyle({ fillOpacity: opacity, weight: s.status === 'Rejected' ? 1 : 2 }); });
+  poly._settlementId = s.id;
+  drawnItems.addLayer(poly);
+}
+
+function renderSidebar() {
+  var list  = document.getElementById('sidebar-list');
+  var badge = document.getElementById('count-badge');
+  badge.textContent = settlements.length;
+
+  if (!settlements.length) {
+    list.innerHTML = '<div class="empty-state">No settlements mapped yet.<br>Click Add to begin drawing.</div>';
+    return;
+  }
+
+  var role        = currentUser.role;
+  var isAuthority = (role === 'Authority');
+  var canDelete   = (role === 'Planner' || role === 'Authority');
+  var html        = '';
+
+  for (var i = 0; i < settlements.length; i++) {
+    var s      = settlements[i];
+    var status = s.status     || 'Pending';
+    var risk   = s.risk_level || 'Low';
+    var pop    = s.population_estimate ? s.population_estimate.toLocaleString() : '';
+
+    var approvalBtns = '';
+    if (isAuthority && status === 'Pending') {
+      approvalBtns = '<div class="card-actions">'
+        + '<button class="btn btn-approve btn-sm" onclick="event.stopPropagation();updateStatus(' + s.id + ',';Approved;')">Approve</button>'
+        + '<button class="btn btn-reject btn-sm" onclick="event.stopPropagation();updateStatus(' + s.id + ',';Rejected;')">Reject</button>'
+        + '</div>';
+    }
+
+    var deleteBtn = canDelete
+      ? '<button class="card-delete" onclick="deleteSettlement(event,' + s.id + ')">x</button>'
+      : '';
+
+    html += '<div class="settlement-card" onclick="flyToSettlement(' + s.id + ')">'
+      + deleteBtn
+      + '<div class="card-name">' + escHtml(s.name) + '</div>'
+      + '<div class="card-meta">'
+      + '<span class="risk-badge risk-' + risk + '">' + risk + '</span>'
+      + ' <span class="status-badge status-' + status + '">' + status + '</span>'
+      + (pop ? ' <span class="pop-tag">' + pop + ' residents</span>' : '')
+      + '</div>'
+      + approvalBtns
+      + '<div class="card-date">' + formatDate(s.created_at) + '</div>'
+      + '</div>';
+  }
+
+  list.innerHTML = settlements.map(s => `
+    <div class="settlement-card" onclick="flyToSettlement(${s.id})">
+      <button class="card-delete" onclick="deleteSettlement(event,${s.id})">✕</button>
+      <div class="card-name">${escHtml(s.name)}</div>
+      <div class="card-meta">
+        <span class="risk-badge risk-${s.risk_level}">${s.risk_level}</span>
+        ${s.population_estimate ? `<span class="pop-tag">👥 ${s.population_estimate.toLocaleString()}</span>` : ''}
+      </div>
+      <div class="card-date">${formatDate(s.created_at)}</div>
+    </div>
+  `).join('');
+}
+
+function flyToSettlement(id) {
+  drawnItems.eachLayer(layer => {
+    if (layer._settlementId === id) {
+      map.flyToBounds(layer.getBounds(), { padding: [60, 60], duration: 0.8 });
+      layer.openPopup();
+    }
+  });
+}
+
+async function deleteSettlement(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this settlement?')) return;
+  try {
+    await fetch(`/settlements/${id}`, { method: 'DELETE' });
+    showToast('Settlement deleted');
+    await loadSettlements();
+  } catch(err) { showToast('Delete failed', true); }
+}
+
+// ════════════════════════════════════════
+// APPROVAL WORKFLOW
+// ════════════════════════════════════════
+async function updateStatus(id, status) {
+  try {
+    const res = await fetch(`/settlements/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (res.ok) {
+      showToast(`✓ Settlement ${status.toLowerCase()}`);
+      await loadSettlements();
+    } else {
+      const d = await res.json();
+      showToast(d.error || 'Update failed', true);
+    }
+  } catch(e) { console.error('updateStatus error:', e); showToast('Network error: ' + e.message, true); }
+}
+
+// ════════════════════════════════════════
+// USER MANAGEMENT
+// ════════════════════════════════════════
+async function loadUsers() {
+  try {
+    const res  = await fetch('/users');
+    const data = await res.json();
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = data.map(u => `
+      <tr>
+        <td class="u-name">${escHtml(u.name)}</td>
+        <td class="u-email">${escHtml(u.email)}</td>
+        <td><span class="role-tag role-${u.role}">${u.role}</span></td>
+        <td class="u-date">${formatDate(u.created_at)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${escHtml(u.name)}')">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('Failed to load users', true); }
+}
+
+function openUserModal() {
+  ['u-name','u-email','u-password'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('u-role').value = 'Planner';
+  document.getElementById('user-modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('u-name').focus(), 200);
+}
+function closeUserModal() { document.getElementById('user-modal-overlay').classList.remove('open'); }
+document.getElementById('user-modal-overlay').addEventListener('click', e => { if (e.target === document.getElementById('user-modal-overlay')) closeUserModal(); });
+
+async function saveUser() {
+  const name     = document.getElementById('u-name').value.trim();
+  const email    = document.getElementById('u-email').value.trim();
+  const password = document.getElementById('u-password').value.trim();
+  const role     = document.getElementById('u-role').value;
+
+  if (!name)     { highlightError('u-name');     return; }
+  if (!email)    { highlightError('u-email');    return; }
+  if (!password) { highlightError('u-password'); return; }
+
+  try {
+    const res = await fetch('/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, role })
+    });
+    const d = await res.json();
+    if (res.ok) {
+      closeUserModal();
+      showToast(`✓ User ${name} created`);
+      loadUsers();
+    } else {
+      showToast(d.error || 'Failed to create user', true);
+    }
+  } catch(e) { console.error('saveUser error:', e); showToast('Network error: ' + e.message, true); }
+}
+
+async function deleteUser(id, name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/users/${id}`, { method: 'DELETE' });
+    const d   = await res.json();
+    if (res.ok) { showToast(`User deleted`); loadUsers(); }
+    else showToast(d.error || 'Delete failed', true);
+  } catch(e) { console.error('deleteUser error:', e); showToast('Network error: ' + e.message, true); }
+}
+
+// ════════════════════════════════════════
+// AUDIT LOG
+// ════════════════════════════════════════
+async function loadAuditLog() {
+  try {
+    const res  = await fetch('/audit-log');
+    const data = await res.json();
+    const tbody = document.getElementById('audit-tbody');
+    tbody.innerHTML = data.map(a => `
+      <tr>
+        <td><span class="audit-action">${a.action}</span></td>
+        <td class="audit-user">${a.user_name || '—'}<br><span style="font-size:9px;color:var(--muted)">${a.user_role || ''}</span></td>
+        <td class="audit-detail">${a.target_type ? `${a.target_type} #${a.target_id}` : '—'}</td>
+        <td class="audit-detail">${a.detail || '—'}</td>
+        <td class="audit-time">${formatDate(a.created_at)}</td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('Failed to load audit log', true); }
+}
+
+// ════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════
+function showToast(msg, isError = false) {
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  } catch { return iso; }
+}}
+</script>
+</body>
+</html>
