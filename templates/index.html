@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UrbanLens — Kigali Settlements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+
+<!-- ════════════════ LOGIN ════════════════ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">🗺</div>
+      <div>
+        <h1>UrbanLens</h1>
+        <p>Settlement Mapping Platform</p>
+      </div>
+    </div>
+    <h2>Sign In</h2>
+    <p class="subtitle">Access the Kigali settlement dashboard.</p>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="login-email" placeholder="you@urbanlens.com">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">
+      <span>🔐</span> Sign In to Dashboard
+    </button>
+    <div class="error-msg" id="login-error">⚠ Invalid credentials. Please try again.</div>
+    <div class="hint-box">
+      DEMO ACCOUNTS<br>
+      Planner:&nbsp;&nbsp;&nbsp;&nbsp;admin@urbanlens.com / admin123<br>
+      Authority:&nbsp;&nbsp;authority@urbanlens.com / auth123<br>
+      Researcher: researcher@urbanlens.com / research123
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ DASHBOARD ════════════════ -->
+<div id="dashboard">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">🗺</div>
+      <h1>UrbanLens</h1>
+    </div>
+
+    <!-- Nav tabs — shown per role -->
+    <div class="nav-tabs">
+      <div class="nav-tab active" id="tab-map" onclick="switchTab('map')">Map</div>
+      <div class="nav-tab" id="tab-users" onclick="switchTab('users')" style="display:none">Users</div>
+      <div class="nav-tab" id="tab-audit" onclick="switchTab('audit')" style="display:none">Audit Log</div>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="status-dot"></div>
+      <span class="status-label">LIVE</span>
+      <div class="user-chip" id="user-chip" onclick="openProfileModal()" title="Edit profile">
+        <span id="chip-name">—</span>
+        <span class="role-tag" id="chip-role">—</span>
+      </div>
+      <button class="btn btn-outline" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Readonly banner for researchers -->
+  <div class="readonly-banner" id="readonly-banner">
+    👁 Read-only mode — you can view all settlements but cannot add or edit data.
+  </div>
+
+  <!-- MAP PANEL -->
+  <div class="panel-view active" id="panel-map">
+    <div class="main-layout">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h3>Settlements</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="count-badge" id="count-badge">0</div>
+            <button class="btn btn-primary btn-sm" onclick="startDraw()" id="add-btn" style="display:none">＋ Add</button>
+          </div>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="sidebar-search">
+          <input type="text" class="search-input" id="search-input"
+            placeholder="Search settlements..." oninput="onSearchInput()">
+          <div class="filter-row">
+            <select class="filter-select" id="filter-risk" onchange="onFilterChange()">
+              <option value="">All risks</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+            <select class="filter-select" id="filter-status" onchange="onFilterChange()">
+              <option value="">All statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sidebar-list" id="sidebar-list">
+          <div class="empty-state">No settlements mapped yet.</div>
+        </div>
+
+        <!-- Infrastructure Add Button -->
+        <div style="padding:10px 12px;border-top:1px solid var(--border);position:relative;">
+          <button class="btn btn-outline btn-sm" id="add-infra-btn" onclick="showInfraDrawOptions()"
+            style="display:none;width:100%">＋ Add Infrastructure</button>
+          <!-- Infra draw menu -->
+          <div id="infra-draw-menu" style="display:none;position:absolute;bottom:52px;left:12px;right:12px;
+            background:var(--surface);border:1px solid var(--border);z-index:999;">
+            <div style="padding:8px 0;">
+              <div onclick="startInfraDraw('Point');showInfraDrawOptions()"
+                style="padding:8px 14px;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;
+                color:var(--text);text-transform:uppercase;letter-spacing:0.5px;"
+                onmouseover="this.style.background='var(--panel)'"
+                onmouseout="this.style.background=''">📍 Point Marker</div>
+              <div onclick="startInfraDraw('LineString');showInfraDrawOptions()"
+                style="padding:8px 14px;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;
+                color:var(--text);text-transform:uppercase;letter-spacing:0.5px;"
+                onmouseover="this.style.background='var(--panel)'"
+                onmouseout="this.style.background=''">〰 Line (Road)</div>
+              <div onclick="startInfraDraw('Polygon');showInfraDrawOptions()"
+                style="padding:8px 14px;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;
+                color:var(--text);text-transform:uppercase;letter-spacing:0.5px;"
+                onmouseover="this.style.background='var(--panel)'"
+                onmouseout="this.style.background=''">⬡ Area (Facility)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map container (relative for layer control) -->
+      <div style="flex:1;position:relative;overflow:hidden;">
+        <div id="map" style="width:100%;height:100%;"></div>
+
+        <!-- Layer Control -->
+        <div class="layer-control" id="layer-control">
+          <div class="layer-control-header" onclick="toggleLayerPanel()">
+            <h4>Map Layers</h4>
+            <span class="toggle-icon">▲</span>
+          </div>
+          <div class="layer-control-body">
+            <label class="layer-item">
+              <input type="checkbox" class="layer-checkbox" data-layer="settlements" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#f59e0b"></span>
+              Settlements
+            </label>
+            <div style="padding:4px 14px;font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border);margin-top:4px;padding-top:8px;">Infrastructure</div>
+            <label class="layer-item sub">
+              <input type="checkbox" class="layer-checkbox" data-layer="infra_Road" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#9ca3af"></span>
+              Roads
+            </label>
+            <label class="layer-item sub">
+              <input type="checkbox" class="layer-checkbox" data-layer="infra_Water_Point" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#3b82f6"></span>
+              Water Points
+            </label>
+            <label class="layer-item sub">
+              <input type="checkbox" class="layer-checkbox" data-layer="infra_Sanitation" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#22c55e"></span>
+              Sanitation
+            </label>
+            <label class="layer-item sub">
+              <input type="checkbox" class="layer-checkbox" data-layer="infra_Waste_Point" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#f97316"></span>
+              Waste Points
+            </label>
+            <label class="layer-item sub">
+              <input type="checkbox" class="layer-checkbox" data-layer="infra_School" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#eab308"></span>
+              Schools
+            </label>
+            <label class="layer-item sub">
+              <input type="checkbox" class="layer-checkbox" data-layer="infra_Health_Center" checked
+                onchange="toggleLayer(this)">
+              <span class="layer-color" style="background:#ef4444"></span>
+              Health Centers
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USERS PANEL (Planner only) -->
+  <div class="panel-view" id="panel-users">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div>
+          <h2>User Management</h2>
+          <p>Create and manage system users and their roles.</p>
+        </div>
+        <button class="btn btn-primary" style="width:auto" onclick="openUserModal()">＋ New User</button>
+      </div>
+      <div class="admin-body">
+        <table class="users-table" id="users-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIT LOG PANEL (Planner only) -->
+  <div class="panel-view" id="panel-audit">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div>
+          <h2>Audit Log</h2>
+          <p>All user actions are recorded here for accountability.</p>
+        </div>
+        <button class="btn btn-outline" style="width:auto" onclick="loadAuditLog()">↺ Refresh</button>
+      </div>
+      <div class="admin-body">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>User</th>
+              <th>Target</th>
+              <th>Detail</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SETTLEMENT MODAL ════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-title">New Settlement</h2>
+        <p id="modal-subtitle">Polygon captured — enter settlement details below.</p>
+      </div>
+      <button class="modal-close" onclick="cancelDraw()">✕</button>
+    </div>
+    <div class="field">
+      <label>Settlement Name</label>
+      <input type="text" id="s-name" placeholder="e.g. Nyamirambo North">
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Population Estimate</label>
+        <input type="number" id="s-pop" placeholder="e.g. 4500" min="0">
+      </div>
+      <div class="field">
+        <label>Risk Level</label>
+        <select id="s-risk">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Housing Type</label>
+        <select id="s-housing">
+          <option value="">— Select —</option>
+          <option>Informal/Makeshift</option>
+          <option>Semi-Permanent</option>
+          <option>Permanent</option>
+          <option>Mixed</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="s-notes" rows="2" placeholder="Any additional notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveSettlement()"><span>💾</span> Save Settlement</button>
+      <button class="btn btn-outline" onclick="cancelDraw()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ INFRASTRUCTURE MODAL ════════ -->
+<div class="modal-overlay" id="infra-modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="infra-modal-title">New Infrastructure</h2>
+        <p>Map an infrastructure feature inside a settlement.</p>
+      </div>
+      <button class="modal-close" onclick="closeInfraModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>Settlement</label>
+      <select id="i-settlement">
+        <option value="">-- Select Settlement --</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Infrastructure Type</label>
+        <select id="i-type">
+          <option value="">— Select —</option>
+          <option>Road</option>
+          <option>Water Point</option>
+          <option>Sanitation</option>
+          <option>Waste Point</option>
+          <option>School</option>
+          <option>Health Center</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Condition</label>
+        <select id="i-condition">
+          <option value="">— Unknown —</option>
+          <option>Good</option>
+          <option>Fair</option>
+          <option>Poor</option>
+          <option>Critical</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Name / Description</label>
+      <input type="text" id="i-name" placeholder="e.g. Main water tap - Sector A">
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="i-notes" rows="2" placeholder="Any additional notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveInfra()"><span>💾</span> Save Infrastructure</button>
+      <button class="btn btn-outline" onclick="closeInfraModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ ADD USER MODAL ════════ -->
+<div class="modal-overlay" id="user-modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>New User</h2>
+        <p>Add a new user to the system.</p>
+      </div>
+      <button class="modal-close" onclick="closeUserModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="u-name" placeholder="e.g. Alice Uwase">
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="u-email" placeholder="alice@urbanlens.com">
+      </div>
+      <div class="field">
+        <label>Role</label>
+        <select id="u-role">
+          <option value="Planner">Planner</option>
+          <option value="Authority">Authority</option>
+          <option value="Researcher">Researcher</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="u-password" placeholder="Min 6 characters">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveUser()"><span>💾</span> Create User</button>
+      <button class="btn btn-outline" onclick="closeUserModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PROFILE MODAL ════════ -->
+<div class="modal-overlay" id="profile-modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>My Profile</h2>
+        <p>View and update your account details.</p>
+      </div>
+      <button class="modal-close" onclick="closeProfileModal()">✕</button>
+    </div>
+    <div class="profile-info">
+      <div class="profile-row">
+        <span class="profile-label">Email</span>
+        <span class="profile-value" id="profile-email">—</span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-label">Role</span>
+        <span class="profile-value" id="profile-role">—</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Display Name</label>
+      <input type="text" id="profile-name" placeholder="Your full name">
+    </div>
+    <div class="field">
+      <label>New Password <span style="color:var(--muted);font-size:9px;text-transform:none;letter-spacing:0">(leave blank to keep current)</span></label>
+      <input type="password" id="profile-new-password" placeholder="Min 6 characters">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveProfile()"><span>💾</span> Save Changes</button>
+      <button class="btn btn-outline" onclick="closeProfileModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Draw instruction banner -->
+<div class="draw-banner" id="draw-banner">
+  <span>✏</span> DRAWING MODE — Click to place points. Double-click to finish.
+  <button onclick="cancelDraw()" style="background:rgba(0,0,0,0.2);border:none;color:#000;cursor:pointer;padding:4px 10px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;margin-left:8px;">CANCEL</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/layers.js') }}"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/settlements.js') }}"></script>
+<script src="{{ url_for('static', filename='js/infrastructure.js') }}"></script>
+<script src="{{ url_for('static', filename='js/users.js') }}"></script>
+<script src="{{ url_for('static', filename='js/audit.js') }}"></script>
+</body>
+</html>
