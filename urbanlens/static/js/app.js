@@ -65,6 +65,9 @@ function setupRoleUI() {
     document.getElementById('tab-audit').style.display = 'flex';
   }
 
+  // All roles get Analytics tab
+  document.getElementById('tab-analytics').style.display = 'flex';
+
   // Researcher gets read-only banner and no Add button
   if (role === 'Researcher') {
     document.getElementById('readonly-banner').classList.add('show');
@@ -84,8 +87,9 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('panel-' + name).classList.add('active');
 
-  if (name === 'users')  loadUsers();
-  if (name === 'audit')  loadAuditLog();
+  if (name === 'users')     loadUsers();
+  if (name === 'audit')     loadAuditLog();
+  if (name === 'analytics') loadAnalytics();
   if (name === 'map' && typeof map !== 'undefined' && map) setTimeout(() => map.invalidateSize(), 50);
 }
 

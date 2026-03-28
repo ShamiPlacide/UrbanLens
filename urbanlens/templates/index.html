@@ -57,6 +57,7 @@
     <!-- Nav tabs — shown per role -->
     <div class="nav-tabs">
       <div class="nav-tab active" id="tab-map" onclick="switchTab('map')">Map</div>
+      <div class="nav-tab" id="tab-analytics" onclick="switchTab('analytics')" style="display:none">Analytics</div>
       <div class="nav-tab" id="tab-users" onclick="switchTab('users')" style="display:none">Users</div>
       <div class="nav-tab" id="tab-audit" onclick="switchTab('audit')" style="display:none">Audit Log</div>
     </div>
@@ -255,6 +256,70 @@
       </div>
     </div>
   </div>
+
+  <!-- ANALYTICS PANEL (All roles) -->
+  <div class="panel-view" id="panel-analytics">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div>
+          <h2>Analytics & Reports</h2>
+          <p>Settlement and infrastructure statistics with export options.</p>
+        </div>
+        <div class="report-actions">
+          <button class="btn btn-outline" style="width:auto" onclick="loadAnalytics()">↺ Refresh</button>
+          <button class="btn btn-outline" style="width:auto" onclick="exportCSV()">⬇ Export CSV</button>
+          <button class="btn btn-primary" style="width:auto" onclick="printReport()">🖨 Print Report</button>
+        </div>
+      </div>
+      <div class="admin-body" id="analytics-content">
+
+        <!-- Summary Cards -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-number" id="stat-total-settlements">0</div>
+            <div class="stat-label">Settlements</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-total-pop">0</div>
+            <div class="stat-label">Total Population</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-total-area">0</div>
+            <div class="stat-label">Total Area</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-avg-density">0</div>
+            <div class="stat-label">Avg Density</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-total-infra">0</div>
+            <div class="stat-label">Infrastructure</div>
+          </div>
+        </div>
+
+        <!-- Breakdown Charts -->
+        <div class="analytics-grid">
+          <div class="analytics-card">
+            <h3>Settlements by Risk Level</h3>
+            <div id="risk-breakdown"></div>
+          </div>
+          <div class="analytics-card">
+            <h3>Settlements by Status</h3>
+            <div id="status-breakdown"></div>
+          </div>
+          <div class="analytics-card">
+            <h3>Infrastructure by Type</h3>
+            <div id="infra-breakdown"></div>
+          </div>
+          <div class="analytics-card">
+            <h3>Infrastructure Condition</h3>
+            <div id="condition-breakdown"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ════════ SETTLEMENT MODAL ════════ -->
@@ -437,6 +502,12 @@
   </div>
 </div>
 
+<!-- Edit boundary banner -->
+<div class="draw-banner" id="edit-boundary-banner" style="background:var(--teal);">
+  <span>✎</span> EDIT MODE — Drag polygon vertices to reshape the boundary. Save in the modal to confirm.
+  <button onclick="cancelBoundaryEdit();closeSettlementModal();" style="background:rgba(0,0,0,0.2);border:none;color:#000;cursor:pointer;padding:4px 10px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;margin-left:8px;">CANCEL</button>
+</div>
+
 <!-- Draw instruction banner -->
 <div class="draw-banner" id="draw-banner">
   <span>✏</span> DRAWING MODE — Click to place points. Double-click to finish.
@@ -454,5 +525,6 @@
 <script src="{{ url_for('static', filename='js/infrastructure.js') }}"></script>
 <script src="{{ url_for('static', filename='js/users.js') }}"></script>
 <script src="{{ url_for('static', filename='js/audit.js') }}"></script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
 </body>
 </html>

@@ -3,6 +3,21 @@
 // ════════════════════════════════════════
 let infrastructureData = [];
 
+function buildInfraPopup(item) {
+  const canEdit = currentUser.role !== 'Researcher';
+  const editBtn = canEdit
+    ? `<button class="btn btn-outline btn-sm" onclick="editInfra(${item.id})">Edit</button>
+       <button class="btn btn-danger btn-sm" onclick="deleteInfra(${item.id})">Delete</button>`
+    : '';
+  return `<div style="min-width:180px;padding:4px">
+      <div class="popup-name">${escHtml(item.name)}</div>
+      <div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">${escHtml(item.type)}</span></div>
+      <div class="popup-row"><span class="popup-label">Condition</span><span class="popup-value">${item.condition || '\u2014'}</span></div>
+      ${item.notes ? `<div class="popup-row"><span class="popup-label">Notes</span><span class="popup-value">${escHtml(item.notes)}</span></div>` : ''}
+      ${editBtn ? `<div class="popup-actions">${editBtn}</div>` : ''}
+    </div>`;
+}
+
 async function loadInfrastructure() {
   try {
     const res = await fetch('/infrastructure');
@@ -34,7 +49,25 @@ function addInfraToMap(item) {
     layer = L.marker([item.coordinates[0], item.coordinates[1]], { icon });
   } else if (item.geometry_type === 'LineString' && item.coordinates.length >= 2) {
     const latLngs = item.coordinates.map(c => L.latLng(c[0], c[1]));
-    layer = L.polyline(latLngs, { color, weight: 3, opacity: 0.8 });
+    if (item.type === 'Road') {
+      // Road casing (dark outline) for Google Maps-like appearance
+      const casing = L.polyline(latLngs, {
+        color: '#1a1a2e', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round'
+      });
+      // Road fill (lighter center line)
+      const fill = L.polyline(latLngs, {
+        color: '#4a5568', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round'
+      });
+      // Group casing + fill as a single interactive layer
+      layer = L.layerGroup([casing, fill]);
+      // Bind popup to fill line so clicks work
+      fill.bindPopup(buildInfraPopup(item), { maxWidth: 260 });
+      fill.on('mouseover', function() { fill.setStyle({ color: '#718096', weight: 6 }); });
+      fill.on('mouseout',  function() { fill.setStyle({ color: '#4a5568', weight: 5 }); });
+      fill._infraId = item.id;
+    } else {
+      layer = L.polyline(latLngs, { color, weight: 3, opacity: 0.8 });
+    }
   } else if (item.geometry_type === 'Polygon' && item.coordinates.length >= 3) {
     const latLngs = item.coordinates.map(c => L.latLng(c[0], c[1]));
     layer = L.polygon(latLngs, { color, fillColor: color, fillOpacity: 0.15, weight: 2 });
@@ -42,22 +75,11 @@ function addInfraToMap(item) {
 
   if (!layer) return;
 
-  const canEdit = currentUser.role !== 'Researcher';
-  const editBtn = canEdit
-    ? `<button class="btn btn-outline btn-sm" onclick="editInfra(${item.id})">Edit</button>
-       <button class="btn btn-danger btn-sm" onclick="deleteInfra(${item.id})">Delete</button>`
-    : '';
-
-  layer.bindPopup(`
-    <div style="min-width:180px;padding:4px">
-      <div class="popup-name">${escHtml(item.name)}</div>
-      <div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">${escHtml(item.type)}</span></div>
-      <div class="popup-row"><span class="popup-label">Condition</span><span class="popup-value">${item.condition || '—'}</span></div>
-      ${item.notes ? `<div class="popup-row"><span class="popup-label">Notes</span><span class="popup-value">${escHtml(item.notes)}</span></div>` : ''}
-      ${editBtn ? `<div class="popup-actions">${editBtn}</div>` : ''}
-    </div>`, { maxWidth: 260 });
-
-  layer._infraId = item.id;
+  // Roads already have popup bound above; bind for all other types
+  if (item.type !== 'Road' || item.geometry_type !== 'LineString') {
+    layer.bindPopup(buildInfraPopup(item), { maxWidth: 260 });
+    layer._infraId = item.id;
+  }
 
   // Add to appropriate layer group
   const layerKey = 'infra_' + item.type.replace(/\s+/g, '_');

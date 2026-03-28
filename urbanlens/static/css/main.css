@@ -371,3 +371,63 @@ body {
 .profile-row:last-child { border-bottom:none; }
 .profile-label { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted); }
 .profile-value { font-weight:500;color:var(--text); }
+
+/* ── ANALYTICS PANEL ── */
+.stat-grid {
+  display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;
+}
+.stat-card {
+  background:var(--panel);border:1px solid var(--border);padding:20px;text-align:center;
+}
+.stat-number {
+  font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--amber);
+}
+.stat-label {
+  font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);margin-top:6px;
+}
+.analytics-grid {
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;
+}
+.analytics-card {
+  background:var(--panel);border:1px solid var(--border);padding:20px;
+}
+.analytics-card h3 {
+  font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:14px;
+}
+.breakdown-row {
+  display:flex;align-items:center;gap:10px;padding:5px 0;
+}
+.breakdown-row .risk-badge,
+.breakdown-row .status-badge {
+  min-width:72px;text-align:center;
+}
+.infra-type-label {
+  font-family:'Space Mono',monospace;font-size:10px;color:var(--text);
+  display:flex;align-items:center;gap:6px;min-width:110px;
+}
+.cond-label {
+  font-family:'Space Mono',monospace;font-size:10px;min-width:72px;font-weight:700;
+}
+.breakdown-bar {
+  flex:1;height:6px;background:var(--border);overflow:hidden;
+}
+.bar-fill {
+  height:100%;display:block;transition:width 0.4s ease;
+}
+.bar-low,.bar-approved { background:var(--low); }
+.bar-medium,.bar-pending { background:var(--medium); }
+.bar-high,.bar-rejected { background:var(--high); }
+.breakdown-val {
+  font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+  color:var(--text);min-width:28px;text-align:right;
+}
+.report-actions {
+  display:flex;gap:10px;margin-bottom:20px;
+}
+
+@media (max-width:900px) {
+  .stat-grid { grid-template-columns:repeat(2,1fr); }
+  .analytics-grid { grid-template-columns:1fr; }
+}

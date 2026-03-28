@@ -28,6 +28,7 @@ function openSettlementModal(settlement = null) {
 function closeSettlementModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   editingSettlementId = null;
+  cancelBoundaryEdit();
 }
 
 document.getElementById('modal-overlay').addEventListener('click', e => {
@@ -48,8 +49,11 @@ async function saveSettlement() {
   };
 
   if (editingSettlementId) {
-    // Edit mode
-    if (currentPolygon) {
+    // Edit mode — check for edited boundary
+    if (editableLayer && editableLayer.editing && editableLayer.editing.enabled()) {
+      const coords = editableLayer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+      payload.polygon_coordinates = coords;
+    } else if (currentPolygon) {
       // New polygon was drawn
       const coords = currentPolygon.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
       payload.polygon_coordinates = coords;
@@ -62,6 +66,7 @@ async function saveSettlement() {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
+        cancelBoundaryEdit();
         closeSettlementModal();
         currentPolygon = null;
         editingSettlementId = null;
@@ -222,10 +227,54 @@ function renderSidebar() {
 }
 
 // ── EDIT ──
+let editableLayer = null;
+
 function editSettlement(id) {
   const s = settlements.find(s => s.id === id);
   if (!s) return;
+
+  // Find the polygon on the map and make it editable
+  const allLayers = typeof layerGroups !== 'undefined' && layerGroups.settlements
+    ? layerGroups.settlements : drawnItems;
+
+  // Remove any previous editable layer
+  cancelBoundaryEdit();
+
+  allLayers.eachLayer(layer => {
+    if (layer._settlementId === id && layer.editing) {
+      map.flyToBounds(layer.getBounds(), { padding: [60, 60], duration: 0.5 });
+      layer.editing.enable();
+      layer.setStyle({ color: '#f59e0b', weight: 3, dashArray: '8 4' });
+      editableLayer = layer;
+    }
+  });
+
+  // Show edit banner
+  const banner = document.getElementById('edit-boundary-banner');
+  if (banner) {
+    banner.classList.add('show');
+  }
+
+  editingSettlementId = id;
   openSettlementModal(s);
+}
+
+function saveBoundaryEdit() {
+  if (editableLayer) {
+    const newCoords = editableLayer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+    currentPolygon = editableLayer;
+    // Store coords so saveSettlement picks them up
+    editableLayer._editedCoords = newCoords;
+  }
+}
+
+function cancelBoundaryEdit() {
+  if (editableLayer && editableLayer.editing) {
+    editableLayer.editing.disable();
+    editableLayer = null;
+  }
+  const banner = document.getElementById('edit-boundary-banner');
+  if (banner) banner.classList.remove('show');
 }
 
 // ── FLY TO ──
