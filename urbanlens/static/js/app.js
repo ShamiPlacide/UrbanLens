@@ -181,6 +181,7 @@ function formatDate(iso) {
 
 function highlightError(id) {
   const el = document.getElementById(id);
-  el.focus(); el.style.borderColor = '#ef4444';
+  el.focus();
+  el.style.borderColor = '#ef4444';
   setTimeout(() => el.style.borderColor = '', 1500);
 }
