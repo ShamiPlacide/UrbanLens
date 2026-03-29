@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, session, make_response
 
 from urbanlens.auth import login_required
-from urbanlens.database import get_db
+from urbanlens.database import get_db, _fetchall
 
 analytics_bp = Blueprint("analytics", __name__)
 
@@ -15,8 +15,7 @@ analytics_bp = Blueprint("analytics", __name__)
 def get_stats():
     conn = get_db()
 
-    # Settlement stats
-    settlements = conn.execute("SELECT * FROM settlements").fetchall()
+    settlements = _fetchall(conn, "SELECT * FROM settlements")
     total_settlements = len(settlements)
     total_pop = sum(r["population_estimate"] or 0 for r in settlements)
     total_area = sum(r["area"] or 0 for r in settlements)
@@ -28,8 +27,7 @@ def get_stats():
         risk_counts[r["risk_level"]] = risk_counts.get(r["risk_level"], 0) + 1
         status_counts[r["status"]] = status_counts.get(r["status"], 0) + 1
 
-    # Infrastructure stats
-    infra_rows = conn.execute("SELECT type, condition FROM infrastructure").fetchall()
+    infra_rows = _fetchall(conn, "SELECT type, condition FROM infrastructure")
     total_infra = len(infra_rows)
     infra_by_type = {}
     condition_counts = {"Good": 0, "Fair": 0, "Poor": 0, "Critical": 0}
@@ -62,26 +60,25 @@ def get_stats():
 def export_csv():
     conn = get_db()
 
-    settlements = conn.execute("""
+    settlements = _fetchall(conn, """
         SELECT s.*, u.name as creator_name
         FROM settlements s
         LEFT JOIN users u ON s.created_by = u.id
         ORDER BY s.created_at DESC
-    """).fetchall()
+    """)
 
-    infra = conn.execute("""
+    infra = _fetchall(conn, """
         SELECT i.*, s.name as settlement_name
         FROM infrastructure i
         LEFT JOIN settlements s ON i.settlement_id = s.id
         ORDER BY i.created_at DESC
-    """).fetchall()
+    """)
 
     conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # Settlements section
     writer.writerow(["=== URBANLENS PLANNING REPORT ==="])
     writer.writerow([f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"])
     writer.writerow([])
@@ -109,7 +106,6 @@ def export_csv():
             i["created_at"] or "", i["notes"] or ""
         ])
 
-    # Summary section
     writer.writerow([])
     writer.writerow(["=== SUMMARY ==="])
     total_pop = sum(s["population_estimate"] or 0 for s in settlements)

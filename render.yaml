@@ -1,0 +1,22 @@
+databases:
+  - name: urbanlens-db
+    plan: free
+    databaseName: urbanlens
+    user: urbanlens_user
+
+services:
+  - type: web
+    name: urbanlens
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: urbanlens-db
+          property: connectionURI
+      - key: PYTHON_VERSION
+        value: "3.11.6"

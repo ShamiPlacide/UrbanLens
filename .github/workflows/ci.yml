@@ -1,0 +1,83 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, claude/audit-web-app-H7zMD]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: urbanlens_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8
+
+      - name: Lint with flake8
+        run: |
+          # Stop on syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Warn on complexity and style (non-blocking)
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Test app starts
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/urbanlens_test
+          SECRET_KEY: test-secret-key
+        run: |
+          python -c "
+          from urbanlens import create_app
+          app = create_app()
+          with app.test_client() as client:
+              # Test home page loads
+              resp = client.get('/')
+              assert resp.status_code == 200, f'Home page failed: {resp.status_code}'
+
+              # Test login works
+              resp = client.post('/login', json={
+                  'email': 'admin@urbanlens.com',
+                  'password': 'admin123'
+              })
+              data = resp.get_json()
+              assert data['success'] == True, f'Login failed: {data}'
+
+              # Test settlements endpoint works
+              resp = client.get('/settlements')
+              assert resp.status_code == 200, f'Settlements failed: {resp.status_code}'
+
+              # Test analytics endpoint works
+              resp = client.get('/analytics/stats')
+              assert resp.status_code == 200, f'Analytics failed: {resp.status_code}'
+
+              # Test infrastructure endpoint works
+              resp = client.get('/infrastructure')
+              assert resp.status_code == 200, f'Infrastructure failed: {resp.status_code}'
+
+              print('All tests passed!')
+          "

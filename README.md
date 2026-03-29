@@ -1,94 +1,64 @@
-# 🗺 UrbanLens — Kigali Settlement Mapping
+# UrbanLens — Kigali Settlement Mapping
 
-UrbanLens is an MVP web application for urban planners to digitally map and track informal settlements in Kigali.
+Web application for urban planners to digitally map and track informal settlements in Kigali.
 
 ## Features
-- 🔐 Login-protected dashboard
-- 🗺 Interactive Leaflet map centered on Kigali
-- ✏ Draw polygon boundaries for settlements
-- 📋 Enter name, population estimate, and risk level
-- 💾 Save to SQLite database via Flask REST API
-- 👁 View all saved settlements as polygons with popups
-- 🗑 Delete settlements from sidebar
+- Role-based access (Planner, Authority, Researcher)
+- Interactive Leaflet map with polygon drawing
+- Settlement CRUD with approval workflow
+- Infrastructure mapping (roads, water, schools, etc.)
+- Analytics dashboard with CSV/print export
+- Audit log for accountability
 
-# UrbanLens — Kigali Settlement Mapping Platform
+## Quick Start (Local Development)
 
-A web application for mapping, managing, and monitoring informal settlements in Kigali, Rwanda. Built with Flask, SQLite, and Leaflet.js.
+### Prerequisites
+- Python 3.10+
+- PostgreSQL running locally
 
-## Prerequisites
+### 1. Create a PostgreSQL database
+- bash
+- createdb urbanlens
 
-- Python 3.8+
-- pip
+### 2. Install dependencies
+```pip install -r requirements.txt```
 
-## Setup & Run
+### 3. Set environment variables
+- export DATABASE_URL=postgresql://localhost:5432/urbanlens
+- export SECRET_KEY=your-secret-key
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ShamiPlacide/UrbanLens.git
-   cd UrbanLens
+### 4. Run the server
+- python run.py
 
-Install dependencies:
-
-pip install flask bcrypt
-
-Run the app:
-
-python run.py
-
-Open in browser:
-
+### 5. Open in browser
 http://localhost:5000
 
-Demo Accounts
-Role	Email	Password	Permissions
-Planner	admin@urbanlens.com	admin123	Full admin: users, audit log, all settlements
-Authority	authority@urbanlens.com	auth123	CRUD own settlements, approve/reject, add infra
-Researcher	researcher@urbanlens.com	research123	Read-only view of all settlements (inc. pending)
-Project Structure
-UrbanLens/
-├── run.py                          # Entry point
-├── config.py                       # Configuration (env vars)
-├── urbanlens/
-│   ├── __init__.py                 # Flask app factory
-│   ├── auth.py                     # login_required & roles_required decorators
-│   ├── database.py                 # SQLite schema, migrations, seed data
-│   ├── models.py                   # Row serializers
-│   ├── routes/
-│   │   ├── __init__.py             # Blueprint registration
-│   │   ├── auth_routes.py          # Login, logout, profile
-│   │   ├── settlement_routes.py    # Settlement CRUD + search/filter
-│   │   ├── infrastructure_routes.py# Infrastructure CRUD
-│   │   ├── user_routes.py          # User management (Planner only)
-│   │   └── audit_routes.py         # Audit log (Planner only)
-│   ├── static/
-│   │   ├── css/main.css            # All styles
-│   │   └── js/
-│   │       ├── app.js              # Auth, role UI, utilities
-│   │       ├── map.js              # Leaflet map + draw controls
-│   │       ├── settlements.js      # Settlement CRUD frontend
-│   │       ├── infrastructure.js   # Infrastructure CRUD frontend
-│   │       ├── layers.js           # Map layer toggles
-│   │       ├── users.js            # User management panel
-│   │       └── audit.js            # Audit log panel
-│   └── templates/
-│       └── index.html              # Single-page app template
+## Demo accounts
+- Role	Email	Password
+- Planner (Admin)	admin@urbanlens.com	admin123
+- Authority	authority@urbanlens.com	auth123
+- Researcher	researcher@urbanlens.com	research123
 
-Features
-Interactive Map — Draw settlement polygons on a dark-themed Leaflet map centered on Kigali
-Settlement Management — Create, edit, delete settlements with population, risk level, housing type, and notes
-Approval Workflow — Settlements start as Pending; Planners and Authorities can approve or reject
-Infrastructure Mapping — Map roads, water points, sanitation, schools, health centers as Points, Lines, or Polygons
-Search & Filter — Filter settlements by name, risk level, status, and population range
-Data Layers — Toggle visibility of settlements and each infrastructure type independently
-User Management — Planner can create/delete users and assign roles
-Audit Log — All actions (login, create, update, delete, approve) are logged
-Profile Editing — Users can update their display name and password
-Role-Based Access Control — Three roles with different permissions (see table above)
-Auto Area & Density — Polygon area (km²) and population density calculated automatically
-Environment Variables (optional)
-Variable	Default	Description
-SECRET_KEY	urbanlens_dev_secret_2024	Flask session secret
-DB_PATH	urbanlens.db	SQLite database path
-FLASK_DEBUG	false	Enable debug mode
-Database
-SQLite is used with automatic schema creation on first run. If upgrading from an older version, missing columns are added automatically via migrations. Delete urbanlens.db to start fresh with seeded demo users.
+## Deployment (Render)
+1. Push code to GitHub
+2. Go to render.com and connect your GitHub repo
+3. Click New > Blueprint and select this repo — render.yaml auto-configures:
+  - A free PostgreSQL database
+  - A web service with gunicorn
+  - Auto-generated SECRET_KEY
+4. Render auto-deploys on every push to main
+
+### CI/CD
+## GitHub Actions runs on every push:
+
+- Flake8 linting
+- Integration tests against a PostgreSQL service container
+- Tests login, settlements, analytics, and infrastructure endpoints
+## Tech Stack
+- Frontend: HTML, CSS, JavaScript, Leaflet.js, Leaflet.draw
+- Backend: Python, Flask, Gunicorn
+- Database: PostgreSQL (psycopg2)
+- CI/CD: GitHub Actions
+- Hosting: Render
+
+---

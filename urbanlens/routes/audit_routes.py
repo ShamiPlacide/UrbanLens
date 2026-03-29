@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 
 from urbanlens.auth import roles_required
-from urbanlens.database import get_db
+from urbanlens.database import get_db, _fetchall
 
 audit_bp = Blueprint("audit", __name__)
 
@@ -10,12 +10,12 @@ audit_bp = Blueprint("audit", __name__)
 @roles_required("Planner")
 def get_audit_log():
     conn = get_db()
-    rows = conn.execute("""
+    rows = _fetchall(conn, """
         SELECT a.id, a.action, a.target_type, a.target_id, a.detail, a.created_at,
                u.name as user_name, u.email as user_email, u.role as user_role
         FROM audit_log a
         LEFT JOIN users u ON a.user_id = u.id
         ORDER BY a.created_at DESC LIMIT 200
-    """).fetchall()
+    """)
     conn.close()
     return jsonify([dict(r) for r in rows])

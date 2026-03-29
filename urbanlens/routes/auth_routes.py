@@ -2,7 +2,7 @@ import bcrypt
 from flask import Blueprint, request, jsonify, session, render_template
 
 from urbanlens.auth import login_required
-from urbanlens.database import get_db, log_action
+from urbanlens.database import get_db, _fetchone, _execute, log_action
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -21,7 +21,7 @@ def login():
     password = data.get("password", "").strip()
 
     conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    user = _fetchone(conn, "SELECT * FROM users WHERE email = %s", (email,))
     conn.close()
 
     if not user or not bcrypt.checkpw(password.encode(), user["password"].encode()):
@@ -74,7 +74,7 @@ def update_profile():
         return jsonify({"error": "Name is required"}), 400
 
     conn = get_db()
-    conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, session["user_id"]))
+    _execute(conn, "UPDATE users SET name = %s WHERE id = %s", (name, session["user_id"]))
     conn.commit()
     conn.close()
 

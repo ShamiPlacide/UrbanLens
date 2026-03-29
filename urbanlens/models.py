@@ -1,6 +1,15 @@
 import json
 
 
+def _serialize_datetime(val):
+    """Convert datetime objects to ISO strings for JSON serialization."""
+    if val is None:
+        return None
+    if hasattr(val, 'isoformat'):
+        return val.isoformat()
+    return str(val)
+
+
 def row_to_settlement(row):
     try:
         coords = json.loads(row["polygon_coordinates"])
@@ -18,8 +27,8 @@ def row_to_settlement(row):
         "density": row["density"],
         "status": row["status"],
         "created_by": row["created_by"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
+        "created_at": _serialize_datetime(row["created_at"]),
+        "updated_at": _serialize_datetime(row["updated_at"]),
     }
 
 
@@ -38,6 +47,6 @@ def row_to_infrastructure(row):
         "condition": row["condition"],
         "notes": row["notes"],
         "created_by": row["created_by"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
+        "created_at": _serialize_datetime(row["created_at"]),
+        "updated_at": _serialize_datetime(row["updated_at"]),
     }

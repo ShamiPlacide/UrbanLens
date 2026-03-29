@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 
 from urbanlens.auth import login_required, roles_required
-from urbanlens.database import get_db, log_action
+from urbanlens.database import get_db, _execute, _fetchone, _fetchall, log_action
 from urbanlens.models import row_to_infrastructure
 
 infrastructure_bp = Blueprint("infrastructure", __name__)
@@ -21,17 +21,18 @@ def get_infrastructure():
     params = []
 
     if settlement_id:
-        conditions.append("settlement_id = ?")
+        conditions.append("settlement_id = %s")
         params.append(settlement_id)
     if infra_type:
-        conditions.append("type = ?")
+        conditions.append("type = %s")
         params.append(infra_type)
 
     where = " AND ".join(conditions) if conditions else "1=1"
-    rows = conn.execute(
+    rows = _fetchall(
+        conn,
         f"SELECT * FROM infrastructure WHERE {where} ORDER BY created_at DESC",
         params,
-    ).fetchall()
+    )
     conn.close()
     return jsonify([row_to_infrastructure(r) for r in rows])
 
@@ -65,24 +66,25 @@ def create_infrastructure():
     now = datetime.utcnow().isoformat()
     conn = get_db()
 
-    # Verify settlement exists
-    if not conn.execute("SELECT id FROM settlements WHERE id = ?", (settlement_id,)).fetchone():
+    if not _fetchone(conn, "SELECT id FROM settlements WHERE id = %s", (settlement_id,)):
         conn.close()
         return jsonify({"error": "Settlement not found"}), 404
 
-    cursor = conn.execute(
+    row = _fetchone(
+        conn,
         """INSERT INTO infrastructure
            (settlement_id, type, name, geometry_type, coordinates, condition, notes,
             created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+           RETURNING id""",
         (
             settlement_id, infra_type, name, geometry_type,
             json.dumps(coordinates), condition, notes,
             session["user_id"], now, now,
         ),
     )
+    new_id = row["id"]
     conn.commit()
-    new_id = cursor.lastrowid
     conn.close()
     log_action(session["user_id"], "create_infrastructure", "infrastructure", new_id, f"{infra_type}: {name}")
     return jsonify({"success": True, "id": new_id}), 201
@@ -96,7 +98,7 @@ def update_infrastructure(infra_id):
         return jsonify({"error": "Invalid request body"}), 400
 
     conn = get_db()
-    row = conn.execute("SELECT * FROM infrastructure WHERE id = ?", (infra_id,)).fetchone()
+    row = _fetchone(conn, "SELECT * FROM infrastructure WHERE id = %s", (infra_id,))
     if not row:
         conn.close()
         return jsonify({"error": "Not found"}), 404
@@ -118,11 +120,12 @@ def update_infrastructure(infra_id):
     notes = data.get("notes", row["notes"])
 
     now = datetime.utcnow().isoformat()
-    conn.execute(
+    _execute(
+        conn,
         """UPDATE infrastructure SET
-            type=?, name=?, geometry_type=?, coordinates=?,
-            condition=?, notes=?, updated_at=?
-           WHERE id=?""",
+            type=%s, name=%s, geometry_type=%s, coordinates=%s,
+            condition=%s, notes=%s, updated_at=%s
+           WHERE id=%s""",
         (infra_type, name, geometry_type, json.dumps(coordinates), condition, notes, now, infra_id),
     )
     conn.commit()
@@ -135,7 +138,7 @@ def update_infrastructure(infra_id):
 @roles_required("Planner", "Authority")
 def delete_infrastructure(infra_id):
     conn = get_db()
-    row = conn.execute("SELECT * FROM infrastructure WHERE id = ?", (infra_id,)).fetchone()
+    row = _fetchone(conn, "SELECT * FROM infrastructure WHERE id = %s", (infra_id,))
     if not row:
         conn.close()
         return jsonify({"error": "Not found"}), 404
@@ -144,7 +147,7 @@ def delete_infrastructure(infra_id):
         conn.close()
         return jsonify({"error": "You can only delete your own infrastructure"}), 403
 
-    conn.execute("DELETE FROM infrastructure WHERE id = ?", (infra_id,))
+    _execute(conn, "DELETE FROM infrastructure WHERE id = %s", (infra_id,))
     conn.commit()
     conn.close()
     log_action(session["user_id"], "delete_infrastructure", "infrastructure", infra_id, row["name"])
