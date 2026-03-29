@@ -29,14 +29,14 @@ def _fetchall(conn, query, params=None):
     return cur.fetchall()
 
 
-def _add_column(conn, table, column, col_type):
-    """Add a column to an existing table if it doesn't already exist."""
-    try:
-        cur = conn.cursor()
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
-        conn.commit()
-    except psycopg2.errors.DuplicateColumn:
-        conn.rollback()
+# def _add_column(conn, table, column, col_type):
+#     """Add a column to an existing table if it doesn't already exist."""
+#     try:
+#         cur = conn.cursor()
+#         cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+#         conn.commit()
+#     except psycopg2.errors.DuplicateColumn:
+#         conn.rollback()
 
 
 def init_db(database_url):
@@ -125,6 +125,15 @@ def init_db(database_url):
 
     conn.close()
 
+
+def _add_column(conn, table, column, col_type):
+  """Add a column to an existing table if it doesn't already exist."""
+  try:
+    cur = conn.cursor()
+    cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+    conn.commit()
+  except psycopg2.errors.DuplicateColumn:
+    conn.rollback()
 
 def _create_user(conn, name, email, password, role):
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
