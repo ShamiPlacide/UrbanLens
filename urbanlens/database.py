@@ -103,6 +103,9 @@ def init_db(database_url):
         )
     """)
 
+    conn.commit()
+
+
     # Migrations: add any missing columns to existing tables
     _add_column(conn, "settlements", "housing_type", "TEXT")
     _add_column(conn, "settlements", "notes", "TEXT")
@@ -128,8 +131,11 @@ def init_db(database_url):
 
 def _add_column(conn, table, column, col_type):
   """Add a column to an existing table if it doesn't already exist."""
+  cur = conn.cursor()
+  cur.execute("SAVEPOINT add_col")
+
   try:
-    cur = conn.cursor()
+    # cur = conn.cursor()
     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
     conn.commit()
   except psycopg2.errors.DuplicateColumn:
